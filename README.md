@@ -1,4 +1,4 @@
-This small library help you integrate Firebase Auth into your Spring Boot application. It will parse ID Token (JWT) 
+This small library helps you integrating [Firebase Auth](https://firebase.google.com/docs/auth/) into your Spring Boot application. It will parse ID Token (JWT) 
 from the **Authorization** header, verify it then provide a **FirebaseUser** instance for current request.
 
 To use it, you need to add following snippet into your build.gradle file:
