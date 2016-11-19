@@ -44,7 +44,7 @@ public class ResourceServerConfig extends FirebaseResourceServerConfig {
 }
 ```
 
-In your resourses/application.yaml (or application.properties) you need to add following configuration:
+In your **resourses/application.yaml** (or **application.properties**) you need to add following configuration:
 
 ```
 security.oauth2.resource.id: 'your-firebase-app-id'
