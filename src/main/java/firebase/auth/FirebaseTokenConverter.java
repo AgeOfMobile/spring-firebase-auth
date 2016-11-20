@@ -1,5 +1,6 @@
 package firebase.auth;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.jwt.BinaryFormat;
 import org.springframework.security.jwt.Jwt;
 import org.springframework.security.jwt.JwtHelper;
@@ -20,9 +21,9 @@ import java.security.PublicKey;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPublicKey;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.springframework.security.jwt.codec.Codecs.b64UrlDecode;
 import static org.springframework.security.jwt.codec.Codecs.utf8Decode;
@@ -31,18 +32,22 @@ import static org.springframework.security.jwt.codec.Codecs.utf8Decode;
  * Created by tri on 11/13/16.
  */
 public class FirebaseTokenConverter extends JwtAccessTokenConverter {
-    private final Map<String, SignatureVerifier> verifiers = new HashMap<>();
+    private static final int DEFAULT_MAX_AGE = 60 * 60 * 24; // 1 day
+    private final Pattern MAX_AGE_PATTERN = Pattern.compile(".*?max-age=([0-9]+).*?",
+            Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+    private Map<String, SignatureVerifier> verifiers = new HashMap<>();
     private final JsonParser objectMapper = JsonParserFactory.create();
+    private final Timer timer = new Timer("DownloadKeysTimer");
+    private final RestTemplate restTemplate = new RestTemplate();
 
-    public FirebaseTokenConverter(String jwksUri) {
-        downloadKeys(jwksUri);
+    public FirebaseTokenConverter(String certificateUrl) {
+        downloadKeys(certificateUrl);
     }
 
-    private void downloadKeys(String jwksUri) {
-        verifiers.clear();
-
-        RestTemplate restTemplate = new RestTemplate();
-        Map response = restTemplate.getForObject(jwksUri, Map.class);
+    private void downloadKeys(final String url) {
+        Map<String, SignatureVerifier> tempVerifiers = new HashMap<>();
+        ResponseEntity<Map> responseEntity = restTemplate.getForEntity(url, Map.class);
+        Map response = responseEntity.getBody();
 
         for (Object key : response.keySet()) {
             String certificateString = (String)response.get(key);
@@ -52,14 +57,33 @@ public class FirebaseTokenConverter extends JwtAccessTokenConverter {
                 X509Certificate certificate = (X509Certificate)f.generateCertificate(is);
                 PublicKey pk = certificate.getPublicKey();
                 RsaVerifier verifier = new RsaVerifier((RSAPublicKey)pk);
-                verifiers.put((String)key, verifier);
+                tempVerifiers.put((String)key, verifier);
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
 
-        // TODO: refresh keys using the value of max-age in the Cache-Control header of the response
-        // String cacheControl = response.getHeaders().getCacheControl();
+        if (tempVerifiers.size() > 0) {
+            // do we need to synchronize here?
+            verifiers = tempVerifiers;
+        }
+
+        String cacheControlValue = responseEntity.getHeaders().getCacheControl();
+        int maxAge = DEFAULT_MAX_AGE;
+        if (cacheControlValue != null) {
+            Matcher matcher = MAX_AGE_PATTERN.matcher(cacheControlValue);
+            if (matcher.matches()) {
+                maxAge = Integer.parseInt(matcher.group(1));
+            }
+        }
+
+        // start timer to update keys
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                downloadKeys(url);
+            }
+        }, maxAge * 1000); // max-age is in seconds unit
     }
 
     @Override

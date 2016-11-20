@@ -1,5 +1,5 @@
 group 'com.ageofmobile'
-version '0.0.1'
+version '0.0.2'
 
 buildscript {
     ext {
@@ -94,6 +94,8 @@ repositories {
 dependencies {
     compile('org.springframework.cloud:spring-cloud-starter-oauth2')
     compile('org.springframework.security:spring-security-jwt')
+
+    testCompile('junit:junit:4.12')
 }
 
 dependencyManagement {
