@@ -14,7 +14,7 @@ repositories {
 
 dependencies {
 ...
-	compile('com.ageofmobile:spring-firebase-auth:0.0.2')
+	compile('com.ageofmobile:spring-firebase-auth:0.0.4')
 ...
 }
 ```
